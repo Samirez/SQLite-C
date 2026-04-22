@@ -21,7 +21,7 @@ static uint32_t read_varint(const uint8_t *p, uint64_t *out) {
     return i;
 }
 
-static int read_varint(const unsigned char *buf, size_t max_len, uint64_t *value, size_t *bytes_read) {
+static int read_varint_bounded(const unsigned char *buf, size_t max_len, uint64_t *value, size_t *bytes_read) {
     uint64_t v = 0;
     size_t i;
 
@@ -483,10 +483,10 @@ static int parse_schema_leaf_page(const unsigned char *page_buffer, uint32_t pag
         cell = page_buffer + cell_offset;
         payload_limit = page_size - cell_offset;
 
-        if (!read_varint(cell, payload_limit, &payload_size, &payload_size_len)) {
+        if (!read_varint_bounded(cell, payload_limit, &payload_size, &payload_size_len)) {
             continue;
         }
-        if (!read_varint(cell + payload_size_len, payload_limit - payload_size_len, &rowid, &rowid_len)) {
+        if (!read_varint_bounded(cell + payload_size_len, payload_limit - payload_size_len, &rowid, &rowid_len)) {
             continue;
         }
 
@@ -496,7 +496,7 @@ static int parse_schema_leaf_page(const unsigned char *page_buffer, uint32_t pag
             continue;
         }
 
-        if (!read_varint(payload, page_size - (size_t)(payload - page_buffer), &header_size, &header_size_len)) {
+        if (!read_varint_bounded(payload, page_size - (size_t)(payload - page_buffer), &header_size, &header_size_len)) {
             continue;
         }
         if (header_size < header_size_len) {
@@ -509,7 +509,7 @@ static int parse_schema_leaf_page(const unsigned char *page_buffer, uint32_t pag
             if (header_cursor >= header_size) {
                 break;
             }
-            if (!read_varint(payload + header_cursor, header_size - header_cursor, &serial_types[col], &serial_len)) {
+            if (!read_varint_bounded(payload + header_cursor, header_size - header_cursor, &serial_types[col], &serial_len)) {
                 break;
             }
             header_cursor += serial_len;

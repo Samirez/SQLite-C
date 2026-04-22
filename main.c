@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <ctype.h>
 
 static int cmp_table_by_table_name(const void *a, const void *b)
 {
@@ -15,29 +16,76 @@ static int cmp_table_by_table_name(const void *a, const void *b)
     return strcmp(ea->tbl_name, eb->tbl_name);
 }
 
-int check_sql_condition(const char *condition) {
-    char query[256];
-    snprintf(query, sizeof(query), "SELECT * FROM %s;", condition);
-    if (strstr(query, "DROP") || strstr(query, "DELETE") || strstr(query, "UPDATE") || strstr(query, "INSERT")) {
-        return 0; // Unsafe command detected
+static int check_sql_condition(const char *command)
+{
+    if (!command) return 0;
+    if (strstr(command, "DROP") || strstr(command, "DELETE") || strstr(command, "UPDATE") || strstr(command, "INSERT")) {
+        return 0;
     }
-    return 1; // Safe command
+    return 1;
+}
+
+static int extract_table_name_from_command(const char *command, char *out, size_t out_size)
+{
+    const char *name = command;
+    const char *from;
+    size_t len;
+
+    if (!command || !out || out_size == 0) return 0;
+
+    from = strstr(command, "FROM ");
+    if (from) {
+        name = from + 5;
+    }
+
+    while (*name == ' ' || *name == '\t') {
+        name++;
+    }
+
+    if (*name == '\0') return 0;
+
+    len = strcspn(name, " ;\t\r\n");
+    if (len == 0 || len >= out_size) return 0;
+
+    memcpy(out, name, len);
+    out[len] = '\0';
+    return 1;
 }
 
 int main(int argc, char *argv[]) {
     char db_buf[512];
-    char cmd_buf[64];
+    char cmd_buf[1024];
     const char *db_file_path;
-    const char *command;
-    char condition_string[] = "Y";
+    const char *command = NULL;
 
-    if (argc == 3) {
+    if (argc >= 3) {
+        size_t pos = 0;
+        int i;
         db_file_path = argv[1];
-        command = argv[2];
+
+        cmd_buf[0] = '\0';
+        for (i = 2; i < argc; i++) {
+            size_t part_len = strlen(argv[i]);
+            if (pos + part_len + ((i > 2) ? 1 : 0) >= sizeof(cmd_buf)) {
+                fprintf(stderr, "Command too long\n");
+                return 1;
+            }
+            if (i > 2) {
+                cmd_buf[pos++] = ' ';
+            }
+            memcpy(cmd_buf + pos, argv[i], part_len);
+            pos += part_len;
+            cmd_buf[pos] = '\0';
+        }
+        command = cmd_buf;
     } else {
         printf("Enter input in the format: <database path> <command>\n");
-        if (scanf("%511s %63s", db_buf, cmd_buf) != 2) {
+        if (scanf("%511s", db_buf) != 1) {
             fprintf(stderr, "Failed to read input\n");
+            return 1;
+        }
+        if (scanf(" %1023[^\n]", cmd_buf) != 1) {
+            fprintf(stderr, "Failed to read command\n");
             return 1;
         }
         db_file_path = db_buf;
@@ -87,14 +135,15 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Unsafe command detected: %s\n", command);
         exit_code = 1;
         goto cleanup;
-    } else if (check_sql_condition(command) && strcmp(command, "Y") == 0) {
-        fprintf(stderr, "Condition is true, but no action defined for this case.\n");
-        exit_code = 1;
-        goto cleanup;
     }
     else {
-        const char *last_space = strrchr(command, ' ');
-        const char *table_name = (last_space != NULL) ? (last_space + 1) : command;
+        char table_name[256];
+
+        if (!extract_table_name_from_command(command, table_name, sizeof(table_name))) {
+            fprintf(stderr, "Failed to parse table name from command: %s\n", command);
+            exit_code = 1;
+            goto cleanup;
+        }
 
         int found = 0;
         for (size_t i = 0; i < tables_count; i++)
