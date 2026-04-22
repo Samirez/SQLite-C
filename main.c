@@ -55,45 +55,62 @@ int main(int argc, char *argv[]) {
 
     schema_entry_t *tables = NULL;
     const size_t tables_count = db_load_schema(&db, &tables);
+    int exit_code = 0;
 
    if (strcmp(command, ".dbinfo") == 0)
     {
         int schema_read_result = read_sqlite_schema(db_file_path);
         if (schema_read_result != 0) {
             fprintf(stderr, "read_sqlite_schema failed with code %d\n", schema_read_result);
-            return 1;
+            exit_code = 1;
+            goto cleanup;
         }
     }
     else if (strcmp(command, ".tables") == 0)
     {
         qsort(tables, tables_count, sizeof(schema_entry_t), cmp_table_by_table_name);
         for (size_t i = 0; i < tables_count; i++) {
+            if (tables[i].tbl_name == NULL) continue;
             printf("%s\n", tables[i].tbl_name);
         }
-        return 0;
+        goto cleanup;
     } 
     else if (strcmp(command, ".schema") == 0) {
         // not implemented yet, but we can read the schema page and print its raw content for demonstration.
-        return 1;
+        exit_code = 1;
+        goto cleanup;
     } 
     else {
         const char *last_space = strrchr(command, ' ');
-        const char *table_name = last_space + 1;
+        const char *table_name = (last_space != NULL) ? (last_space + 1) : command;
 
+        int found = 0;
         for (size_t i = 0; i < tables_count; i++)
         {
+            if (tables[i].tbl_name == NULL) continue;
             if (strcmp(tables[i].tbl_name, table_name) == 0)
             {
+                found = 1;
                 db_page_t table_page;
                 if (db_read_page_t(&db, tables[i].root_page, &table_page) != 0)
                 {
                     fprintf(stderr, "Failed to read table page for table: %s\n", tables[i].tbl_name);
-                    return 1;
+                    exit_code = 1;
+                    goto cleanup;
                 }
                 printf("%zu\n", table_page.header.cell_count);
+                break;
             }
         }
+        if (!found) {
+            fprintf(stderr, "Table not found: %s\n", table_name);
+            exit_code = 1;
+            goto cleanup;
+        }    
     }
+
+cleanup:
+    free(tables);
     db_close(&db);
-    return 0;
+    return exit_code;
 }
