@@ -75,8 +75,13 @@ int main(int argc, char *argv[]) {
         }
         goto cleanup;
     } 
-    else if (strcmp(command, ".schema") == 0) {
-        // not implemented yet, but we can read the schema page and print its raw content for demonstration.
+    else if (strcmp(command, ".schema") == 0) 
+    {
+            for (size_t i = 0; i < tables_count; i++) 
+            {
+                if (tables[i].tbl_name == NULL) continue;
+                printf("%s\n", tables[i].sql ? tables[i].sql : "NULL");
+            }
         exit_code = 1;
         goto cleanup;
     } 
