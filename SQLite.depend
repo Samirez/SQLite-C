@@ -1,0 +1,18 @@
+# depslib dependency file v1.0
+1776674463 source:c:\users\spac-o-9\onedrive - specialisterne\dokumenter\specialisterne_kursus\sqlite_uge_11\database_handler.c
+	"database_handler.h"
+
+1776685958 c:\users\spac-o-9\onedrive - specialisterne\dokumenter\specialisterne_kursus\sqlite_uge_11\database_handler.h
+	"data_types.h"
+
+1776682529 source:c:\users\spac-o-9\onedrive - specialisterne\dokumenter\specialisterne_kursus\sqlite_uge_11\main.c
+	"database_handler.h"
+	<string.h>
+	<stdio.h>
+	<stdlib.h>
+	<stdint.h>
+
+1776690056 c:\users\spac-o-9\onedrive - specialisterne\dokumenter\specialisterne_kursus\sqlite_uge_11\data_types.h
+	<stdio.h>
+	<stdint.h>
+
