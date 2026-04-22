@@ -15,11 +15,21 @@ static int cmp_table_by_table_name(const void *a, const void *b)
     return strcmp(ea->tbl_name, eb->tbl_name);
 }
 
+int check_sql_condition(const char *condition) {
+    char query[256];
+    snprintf(query, sizeof(query), "SELECT * FROM %s;", condition);
+    if (strstr(query, "DROP") || strstr(query, "DELETE") || strstr(query, "UPDATE") || strstr(query, "INSERT")) {
+        return 0; // Unsafe command detected
+    }
+    return 1; // Safe command
+}
+
 int main(int argc, char *argv[]) {
     char db_buf[512];
     char cmd_buf[64];
     const char *db_file_path;
     const char *command;
+    char condition_string[] = "Y";
 
     if (argc == 3) {
         db_file_path = argv[1];
@@ -37,19 +47,6 @@ int main(int argc, char *argv[]) {
     db_file_t db;
     if (db_open(&db, db_file_path) != 0) {
         fprintf(stderr, "Failed to open database file: %s\n", db_file_path);
-        return 1;
-    }
-
-    db_file_t db_header;
-    if (db_read_header(&db_header, db_file_path) != 0) {
-        fprintf(stderr, "Failed to read database header\n");
-        return 1;
-    }
-
-    db_page_t main_page;
-    if (db_read_page_t(&db, 1, &main_page) != 0) {
-        fprintf(stderr, "Failed to read main page\n");
-        db_close(&db);
         return 1;
     }
 
@@ -84,7 +81,17 @@ int main(int argc, char *argv[]) {
             }
         exit_code = 1;
         goto cleanup;
-    } 
+    }
+    else if (!check_sql_condition(command))
+    {
+        fprintf(stderr, "Unsafe command detected: %s\n", command);
+        exit_code = 1;
+        goto cleanup;
+    } else if (check_sql_condition(command) && strcmp(command, "Y") == 0) {
+        fprintf(stderr, "Condition is true, but no action defined for this case.\n");
+        exit_code = 1;
+        goto cleanup;
+    }
     else {
         const char *last_space = strrchr(command, ' ');
         const char *table_name = (last_space != NULL) ? (last_space + 1) : command;
