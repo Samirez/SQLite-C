@@ -18,8 +18,19 @@ static int cmp_table_by_table_name(const void *a, const void *b)
 
 static int check_sql_condition(const char *command)
 {
+    char lower_command[1024];
+    size_t i;
+
     if (!command) return 0;
-    if (strstr(command, "DROP") || strstr(command, "DELETE") || strstr(command, "UPDATE") || strstr(command, "INSERT")) {
+
+    i = 0;
+    while (command[i] != '\0' && i < sizeof(lower_command) - 1) {
+        lower_command[i] = (char)tolower((unsigned char)command[i]);
+        i++;
+    }
+    lower_command[i] = '\0';
+
+    if (strstr(lower_command, "drop") || strstr(lower_command, "delete") || strstr(lower_command, "update") || strstr(lower_command, "insert")) {
         return 0;
     }
     return 1;
@@ -30,10 +41,21 @@ static int extract_table_name_from_command(const char *command, char *out, size_
     const char *name = command;
     const char *from;
     size_t len;
+    size_t i;
 
     if (!command || !out || out_size == 0) return 0;
 
-    from = strstr(command, "FROM ");
+    from = NULL;
+    for (i = 0; command[i] != '\0'; i++) {
+        if (tolower((unsigned char)command[i]) == 'f' &&
+            tolower((unsigned char)command[i + 1]) == 'r' &&
+            tolower((unsigned char)command[i + 2]) == 'o' &&
+            tolower((unsigned char)command[i + 3]) == 'm' &&
+            command[i + 4] == ' ') {
+            from = command + i;
+            break;
+        }
+    }
     if (from) {
         name = from + 5;
     }
